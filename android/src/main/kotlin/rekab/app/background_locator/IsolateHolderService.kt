@@ -1,5 +1,6 @@
 package rekab.app.background_locator
 
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,9 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.google.android.gms.location.ActivityRecognition
+import com.google.android.gms.location.ActivityRecognitionClient
+import com.google.android.gms.location.ActivityTransitionEvent
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -19,7 +23,7 @@ import rekab.app.background_locator.pluggables.Pluggable
 import rekab.app.background_locator.provider.*
 import java.util.HashMap
 
-class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateListener, Service() {
+class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateListener, ActivityUpdateListener,Service() {
     companion object {
         @JvmStatic
         val ACTION_SHUTDOWN = "SHUTDOWN"
@@ -40,6 +44,12 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         private val notificationId = 1
 
         @JvmStatic
+        private val REQUEST_CODE_ACTIVITY_TRANSITION = 123
+
+        @JvmStatic
+        private val REQUEST_CODE_INTENT_ACTIVITY_TRANSITION = 122
+
+        @JvmStatic
         var isServiceRunning = false
     }
 
@@ -54,6 +64,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     internal lateinit var backgroundChannel: MethodChannel
     internal lateinit var context: Context
     private var pluggables: ArrayList<Pluggable> = ArrayList()
+    private lateinit var client: ActivityRecognitionClient
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -61,6 +72,9 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
     override fun onCreate() {
         super.onCreate()
+        // The Activity Recognition Client returns a
+        // list of activities that a user might be doing
+        client = ActivityRecognition.getClient(this)
         startLocatorService(this)
         startForeground(notificationId, getNotification())
     }
@@ -164,6 +178,9 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
             pluggables.add(DisposePluggable())
         }
 
+        //Activity recognition
+        requestForUpdates()
+
         start()
     }
 
@@ -177,6 +194,10 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         }
 
         locatorClient?.removeLocationUpdates()
+
+        //Deregister activity recognition
+        deregisterForUpdates()
+
         stopForeground(true)
         stopSelf()
 
@@ -273,6 +294,62 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
                         backgroundChannel.invokeMethod(Keys.BCM_SEND_LOCATION, result)
                     }
         }
+    }
+
+
+    //************* Activity Recognition ***************************************
+
+    override fun onDeviceActivityChange(event: ActivityTransitionEvent) {
+
+        Log.d("plugin", "activity ${event.activityType},${event.transitionType}")
+
+    }
+
+    // To register for changes we have to also supply the requestActivityTransitionUpdates() method
+    // with the PendingIntent object that will contain an intent to the component
+    // (i.e. IntentService, BroadcastReceiver etc.) that will receive and handle updates appropriately.
+    @SuppressLint("MissingPermission")
+    private fun requestForUpdates() {
+        client.requestActivityTransitionUpdates(
+                        ActivityTransitionsUtil.getActivityTransitionRequest(),
+                        getPendingIntent()
+                )
+                .addOnSuccessListener {
+
+                    //"successful registration"
+                    //showToast("successful registration")
+                }
+                .addOnFailureListener {
+                    //"Unsuccessful registration"
+                    //showToast("Unsuccessful registration")
+                }
+    }
+
+    // Deregistering from updates
+    // call the removeActivityTransitionUpdates() method
+    // of the ActivityRecognitionClient and pass
+    // ourPendingIntent object as a parameter
+    @SuppressLint("MissingPermission")
+    private fun deregisterForUpdates() {
+        client
+                .removeActivityTransitionUpdates(getPendingIntent())
+                .addOnSuccessListener {
+                    getPendingIntent().cancel()
+                    //showToast("successful deregistration")
+                }
+                .addOnFailureListener { e: Exception ->
+                    //showToast("unsuccessful deregistration")
+                }
+    }
+
+    private fun getPendingIntent(): PendingIntent {
+        val intent = Intent(this, ActivityTransitionReceiver(this)::class.java)
+        return PendingIntent.getBroadcast(
+                this,
+                REQUEST_CODE_INTENT_ACTIVITY_TRANSITION,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT
+        )
     }
 
 }

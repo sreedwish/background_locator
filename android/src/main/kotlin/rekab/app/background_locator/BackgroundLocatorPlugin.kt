@@ -89,6 +89,15 @@ class BackgroundLocatorPlugin
                 return
             }
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    // check for permission
+                    && !ActivityTransitionsUtil.hasActivityTransitionPermissions(context)
+            ){
+                val msg = "'registerLocator' requires the ACTIVITY_RECOGNITION permission."
+                result?.error(msg, null, null)
+                return
+            }
+
             startIsolateService(context, settings)
 
             // We need to know when the service binded exactly, there is some delay between starting a

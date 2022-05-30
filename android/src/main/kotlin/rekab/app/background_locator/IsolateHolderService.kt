@@ -73,6 +73,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     private var detectionINTERVALinMILLISECONDS = 10 * 1000L// 10 seconds
     private var lastDetectedUserActivity : String? = null
     private var lastLocationUpdateTime : Long = System.currentTimeMillis()
+    private var lastLocation :  HashMap<Any, Any>? = null
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -324,7 +325,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
     var timerTask: TimerTask = object : TimerTask() {
         override fun run() {
-            if ( (System.currentTimeMillis() - lastLocationUpdateTime) / 1000 > 3){
+            if ( ((System.currentTimeMillis() - lastLocationUpdateTime) / 1000) > 3){
                 onLocationUpdated(LocationParserUtil.getMockLocation())
             }
 
@@ -382,12 +383,12 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         client.requestActivityUpdates(detectionINTERVALinMILLISECONDS, getPendingIntent())
                 .addOnSuccessListener {
 
-            Log.d("activityRecog", "start success")
+            Log.d(tag, "start success")
             //"successful registration"
             //showToast("successful registration")
                     }
                 .addOnFailureListener {
-                    Log.d("activityRecog", "start fail")
+                    Log.d(tag, "start fail")
                     //"Unsuccessful registration"
                     //showToast("Unsuccessful registration")
                 }

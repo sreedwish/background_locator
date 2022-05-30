@@ -40,15 +40,15 @@ class LocationParserUtil {
 
             return hashMapOf(
                     Keys.ARG_IS_MOCKED to isMocked,
-                    Keys.ARG_LATITUDE to 0,
-                    Keys.ARG_LONGITUDE to 0,
-                    Keys.ARG_ACCURACY to 0,
-                    Keys.ARG_ALTITUDE to 0,
-                    Keys.ARG_SPEED to 0,
+                    Keys.ARG_LATITUDE to 0.0,
+                    Keys.ARG_LONGITUDE to 0.0,
+                    Keys.ARG_ACCURACY to 0.0,
+                    Keys.ARG_ALTITUDE to 0.0,
+                    Keys.ARG_SPEED to 0.0,
                     Keys.ARG_SPEED_ACCURACY to speedAccuracy,
-                    Keys.ARG_HEADING to 0,
-                    Keys.ARG_TIME to 0,
-                    Keys.ARG_PROVIDER to 0,
+                    Keys.ARG_HEADING to 0.0,
+                    Keys.ARG_TIME to 0.0,
+                    Keys.ARG_PROVIDER to "GPS",
             )
         }
 

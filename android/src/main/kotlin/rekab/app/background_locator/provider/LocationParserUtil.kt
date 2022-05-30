@@ -32,6 +32,26 @@ class LocationParserUtil {
             )
         }
 
+        fun getLocationMapFromLocation(): HashMap<Any, Any> {
+            var speedAccuracy = 0f
+
+            val isMocked = true
+
+
+            return hashMapOf(
+                    Keys.ARG_IS_MOCKED to isMocked,
+                    Keys.ARG_LATITUDE to 0,
+                    Keys.ARG_LONGITUDE to 0,
+                    Keys.ARG_ACCURACY to 0,
+                    Keys.ARG_ALTITUDE to 0,
+                    Keys.ARG_SPEED to 0,
+                    Keys.ARG_SPEED_ACCURACY to speedAccuracy,
+                    Keys.ARG_HEADING to 0,
+                    Keys.ARG_TIME to 0,
+                    Keys.ARG_PROVIDER to 0,
+            )
+        }
+
         fun getLocationMapFromLocation(location: LocationResult?): HashMap<Any, Any>? {
             val firstLocation = location?.lastLocation ?: return null
 
@@ -55,5 +75,7 @@ class LocationParserUtil {
                     Keys.ARG_HEADING to firstLocation.bearing,
                     Keys.ARG_TIME to firstLocation.time.toDouble())
         }
+
+
     }
 }

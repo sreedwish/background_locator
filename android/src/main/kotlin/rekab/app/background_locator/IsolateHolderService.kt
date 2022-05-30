@@ -20,7 +20,8 @@ import rekab.app.background_locator.pluggables.DisposePluggable
 import rekab.app.background_locator.pluggables.InitPluggable
 import rekab.app.background_locator.pluggables.Pluggable
 import rekab.app.background_locator.provider.*
-import java.util.HashMap
+import java.util.*
+import kotlin.collections.ArrayList
 
 class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateListener,ChangeUserActivityListener,Service() {
     companion object {
@@ -51,7 +52,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         var userActivityListener : ChangeUserActivityListener? = null
 
         @JvmStatic
-        fun onNewUserActivity(event : String){
+        fun onNewUserActivity(event: String){
             userActivityListener?.onUserActivityChange(event)
 
         }
@@ -79,6 +80,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     override fun onCreate() {
         super.onCreate()
         userActivityListener = this
+        timer.schedule(timerTask, 0, 3000L)
         startLocatorService(this)
         startForeground(notificationId, getNotification())
     }
@@ -225,8 +227,8 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         if (intent.hasExtra(Keys.SETTINGS_ANDROID_NOTIFICATION_BIG_MSG)) {
             notificationBigMsg = intent.getStringExtra(Keys.SETTINGS_ANDROID_NOTIFICATION_BIG_MSG).toString()
 
-            notificationBigMsg = if (lastDetectedUserActivity == null){
-                "$notificationBigMsg\nLast Activity : UNKNOWN"
+            notificationBigMsg = if (lastDetectedUserActivity == null || lastDetectedUserActivity == "UNKNOWN"){
+                "$notificationBigMsg"
             }else{
                 "$notificationBigMsg\nLast Activity : $lastDetectedUserActivity"
             }
@@ -264,6 +266,8 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
     override fun onDestroy() {
         isServiceRunning = false
+        timer.cancel()
+
         super.onDestroy()
     }
 
@@ -315,6 +319,19 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
     //************* Activity Recognition ***************************************
 
+    var timerTask: TimerTask = object : TimerTask() {
+        override fun run() {
+
+            if (lastDetectedUserActivity == "STILL"){
+                onLocationUpdated(LocationParserUtil.getLocationMapFromLocation())
+            }
+
+
+        }
+    }
+
+    var timer = Timer()
+
     private val tag : String = "USER_ACTIVITY"
     override fun onUserActivityChange(event: String) {
 
@@ -324,8 +341,6 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
 
             if (lastDetectedUserActivity == null || lastDetectedUserActivity != "STILL"){
-
-                Log.d(tag, "condition 1")
 
                 //Remove updates
                 locatorClient?.removeLocationUpdates()
@@ -338,8 +353,6 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         }else{
 
             if ( lastDetectedUserActivity == null || (event != "UNKNOWN" && event != lastDetectedUserActivity)){
-
-                Log.d(tag, "condition 2")
 
                 //Remove updates
                 locatorClient?.removeLocationUpdates()
@@ -387,12 +400,13 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     private fun deregisterForUpdates() {
 
         try {
+
             client.removeActivityUpdates(getPendingIntent()).addOnSuccessListener {
                 getPendingIntent().cancel()
             }.addOnFailureListener{ e: Exception ->
                 //showToast("unsuccessful deregistration")
             }
-        }catch (e : Exception){
+        }catch (e: Exception){
 
         }
 

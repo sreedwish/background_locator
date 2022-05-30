@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:isolate';
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:background_locator/background_locator.dart';
@@ -8,17 +7,12 @@ import 'package:background_locator/location_dto.dart';
 import 'package:background_locator/settings/android_settings.dart';
 import 'package:background_locator/settings/ios_settings.dart';
 import 'package:background_locator/settings/locator_settings.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:location_permissions/location_permissions.dart';
 
 import 'file_manager.dart';
 import 'location_callback_handler.dart';
 import 'location_service_repository.dart';
-
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_geofence/geofence.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(MyApp());
 
@@ -34,30 +28,9 @@ class _MyAppState extends State<MyApp> {
   bool isRunning;
   LocationDto lastLocation;
 
-  TextEditingController _controllerLat = TextEditingController();
-  TextEditingController _controllerLng = TextEditingController();
-  TextEditingController _controllerRad = TextEditingController();
-
-  final dec = BoxDecoration(
-      border: Border.all(
-        color: Colors.blue[500],
-      ),
-      borderRadius: BorderRadius.all(Radius.circular(10)));
-
-  final padding = EdgeInsets.only(right: 10, left: 10);
-
-  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      new FlutterLocalNotificationsPlugin();
-
   @override
   void initState() {
     super.initState();
-
-    setDataFromShared();
-
-    initNotificationPlugin();
-
-    initPlatformStateGeoFence();
 
     if (IsolateNameServer.lookupPortByName(
             LocationServiceRepository.isolateName) !=
@@ -80,57 +53,6 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     super.dispose();
-  }
-
-  void initNotificationPlugin() {
-    // initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
-    var initializationSettingsAndroid =
-        new AndroidInitializationSettings('@mipmap/ic_location');
-    var initializationSettingsIOS =
-        IOSInitializationSettings(onDidReceiveLocalNotification: null);
-    var initializationSettings = InitializationSettings(
-        android: initializationSettingsAndroid, iOS: initializationSettingsIOS);
-    flutterLocalNotificationsPlugin.initialize(initializationSettings,
-        onSelectNotification: null);
-  }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformStateGeoFence() async {
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-    Geofence.initialize();
-    Geofence.startListening(GeolocationEvent.entry, (entry) {
-      print('*****entry');
-      scheduleNotification("Entry of a geo zone", "Welcome to: ${entry.id}");
-    });
-
-    Geofence.startListening(GeolocationEvent.exit, (entry) {
-      print('******exit');
-      scheduleNotification("Exit of a geo zone", "Bye bye to: ${entry.id}");
-    });
-
-    setState(() {});
-  }
-
-  void scheduleNotification(String title, String subtitle) {
-    print("scheduling one with $title and $subtitle");
-    var rng = new Random();
-    Future.delayed(Duration(seconds: 5)).then((result) async {
-      var androidPlatformChannelSpecifics = AndroidNotificationDetails(
-          'bg_locator', 'background locate',
-          importance: Importance.high,
-          priority: Priority.high,
-          ticker: 'ticker');
-      var iOSPlatformChannelSpecifics = IOSNotificationDetails();
-      var platformChannelSpecifics = NotificationDetails(
-          android: androidPlatformChannelSpecifics,
-          iOS: iOSPlatformChannelSpecifics);
-      await flutterLocalNotificationsPlugin.show(
-          rng.nextInt(100000), title, subtitle, platformChannelSpecifics,
-          payload: 'item x');
-    });
   }
 
   Future<void> updateUI(LocationDto data) async {
@@ -215,63 +137,6 @@ class _MyAppState extends State<MyApp> {
       logStr,
     );
 
-    final textWidget1 = Container(
-        width: 200,
-        height: 50,
-        margin: padding,
-        decoration: dec,
-        child: TextField(
-          controller: _controllerLat,
-          keyboardType:
-              TextInputType.numberWithOptions(signed: true, decimal: true),
-          maxLines: 1,
-          decoration: new InputDecoration(
-              border: InputBorder.none,
-              contentPadding:
-                  EdgeInsets.only(left: 15, bottom: 11, top: 11, right: 15),
-              hintText: "Lat"),
-        ));
-
-    final textWidget2 = Container(
-        width: 200,
-        height: 50,
-        margin: padding,
-        decoration: dec,
-        child: TextField(
-            controller: _controllerLng,
-            keyboardType:
-                TextInputType.numberWithOptions(signed: true, decimal: true),
-            maxLines: 1,
-            decoration: new InputDecoration(
-                border: InputBorder.none,
-                contentPadding:
-                    EdgeInsets.only(left: 15, bottom: 11, top: 11, right: 15),
-                hintText: "Lng")));
-
-    final textWidget3 = Container(
-        width: 200,
-        height: 50,
-        margin: padding,
-        decoration: dec,
-        child: TextField(
-            controller: _controllerRad,
-            keyboardType:
-                TextInputType.numberWithOptions(signed: true, decimal: true),
-            maxLines: 1,
-            decoration: new InputDecoration(
-                border: InputBorder.none,
-                contentPadding:
-                    EdgeInsets.only(left: 15, bottom: 11, top: 11, right: 15),
-                hintText: "Radius in meter")));
-
-    final raw = Container(
-      height: 50,
-      child: ListView(
-        children: [textWidget1, textWidget2, textWidget3],
-        scrollDirection: Axis.horizontal,
-      ),
-    );
-
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
@@ -283,7 +148,7 @@ class _MyAppState extends State<MyApp> {
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[start, stop, clear, raw, status, log],
+              children: <Widget>[start, stop, clear, status, log],
             ),
           ),
         ),
@@ -297,9 +162,6 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       isRunning = _isRunning;
     });
-
-    Geofence.removeAllGeolocations();
-    Geofence.stopListeningForLocationChanges();
   }
 
   void _onStart() async {
@@ -311,12 +173,6 @@ class _MyAppState extends State<MyApp> {
         isRunning = _isRunning;
         lastLocation = null;
       });
-
-      if (_controllerRad.text.isNotEmpty &&
-          _controllerLat.text.isNotEmpty &&
-          _controllerLng.text.isNotEmpty) {
-        startGeoFence();
-      }
     } else {
       // show error
     }
@@ -370,70 +226,5 @@ class _MyAppState extends State<MyApp> {
                 notificationIconColor: Colors.grey,
                 notificationTapCallback:
                     LocationCallbackHandler.notificationCallback)));
-  }
-
-  Future<void> writeData(var lat, var lng, var radius) async {
-    // Obtain shared preferences.
-    final prefs = await SharedPreferences.getInstance();
-
-    if (lat == null) {
-      lat = "0";
-    }
-
-    if (lng == null) {
-      lng = "0";
-    }
-
-    if (radius == null) {
-      radius = "0";
-    }
-
-    lat = double.parse(lat);
-    lng = double.parse(lng);
-    radius = double.parse(radius);
-
-    await prefs.setDouble('lat', lat);
-    await prefs.setDouble('lng', lng);
-    await prefs.setDouble('rad', radius);
-  }
-
-  Future<void> setDataFromShared() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    double lat = prefs.getDouble('lat') ?? 0;
-    double lng = prefs.getDouble('lng') ?? 0;
-    double rad = prefs.getDouble('rad') ?? 0;
-
-    _controllerLat.text = lat.toString();
-    _controllerLng.text = lng.toString();
-    _controllerRad.text = rad.toString();
-  }
-
-  Future<void> startGeoFence() async {
-    FocusScope.of(context).unfocus();
-
-    writeData(_controllerLat.text.trim(), _controllerLng.text.trim(),
-        _controllerRad.text.trim());
-
-    final prefs = await SharedPreferences.getInstance();
-
-    double lat = prefs.getDouble('lat') ?? 0;
-    double lng = prefs.getDouble('lng') ?? 0;
-    double rad = prefs.getDouble('rad') ?? 0;
-
-    print('lat $lat, lng $lng rad $rad');
-
-    if (lat != 0 && lng != 0 && rad != 0) {
-      Geolocation location =
-          Geolocation(latitude: lat, longitude: lng, radius: rad, id: "Loc1");
-
-      Geofence.addGeolocation(location, GeolocationEvent.entry).then((onValue) {
-        scheduleNotification(
-            "Geo region added", "Your geo point has been added!");
-      }).catchError((onError) {
-        print("great failure");
-      });
-      Geofence.startListeningForLocationChanges();
-    }
   }
 }

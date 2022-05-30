@@ -72,6 +72,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     private lateinit var client: ActivityRecognitionClient
     private var detectionINTERVALinMILLISECONDS = 10 * 1000L// 10 seconds
     private var lastDetectedUserActivity : String? = null
+    private var lastLocationUpdateTime : Long = System.currentTimeMillis()
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -228,7 +229,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
             notificationBigMsg = intent.getStringExtra(Keys.SETTINGS_ANDROID_NOTIFICATION_BIG_MSG).toString()
 
             notificationBigMsg = if (lastDetectedUserActivity == null || lastDetectedUserActivity == "UNKNOWN"){
-                "$notificationBigMsg"
+                notificationBigMsg
             }else{
                 "$notificationBigMsg\nLast Activity : $lastDetectedUserActivity"
             }
@@ -305,6 +306,8 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
         // Log.d("plugin", "sendLocationEvent $result")
 
+        lastLocationUpdateTime = System.currentTimeMillis()
+
         if (backgroundEngine != null) {
             val backgroundChannel =
                     MethodChannel(backgroundEngine?.dartExecutor?.binaryMessenger!!, Keys.BACKGROUND_CHANNEL_ID)
@@ -321,9 +324,8 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
     var timerTask: TimerTask = object : TimerTask() {
         override fun run() {
-
-            if (lastDetectedUserActivity == "STILL"){
-                onLocationUpdated(LocationParserUtil.getLocationMapFromLocation())
+            if ( (System.currentTimeMillis() - lastLocationUpdateTime) / 1000 > 3){
+                onLocationUpdated(LocationParserUtil.getMockLocation())
             }
 
 

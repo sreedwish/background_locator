@@ -32,8 +32,8 @@ class LocationParserUtil {
             )
         }
 
-        fun getLocationMapFromLocation(): HashMap<Any, Any> {
-            var speedAccuracy = 0f
+        fun getMockLocation(): HashMap<Any, Any> {
+            val speedAccuracy = 0f
 
             val isMocked = true
 

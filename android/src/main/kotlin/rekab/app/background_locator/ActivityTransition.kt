@@ -16,7 +16,7 @@ object ActivityTransitionsUtil {
         // List of activity transitions to track
         val transitions = mutableListOf<ActivityTransition>()
 
-      /*  transitions +=
+        transitions +=
                 ActivityTransition.Builder()
                         .setActivityType(DetectedActivity.IN_VEHICLE)
                         .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
@@ -38,7 +38,7 @@ object ActivityTransitionsUtil {
                 ActivityTransition.Builder()
                         .setActivityType(DetectedActivity.WALKING)
                         .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
-                        .build()*/
+                        .build()
 
         transitions +=
                 ActivityTransition.Builder()
@@ -52,7 +52,7 @@ object ActivityTransitionsUtil {
                         .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
                         .build()
 
-      /*  transitions +=
+        transitions +=
                 ActivityTransition.Builder()
                         .setActivityType(DetectedActivity.RUNNING)
                         .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
@@ -62,7 +62,7 @@ object ActivityTransitionsUtil {
                 ActivityTransition.Builder()
                         .setActivityType(DetectedActivity.RUNNING)
                         .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
-                        .build()*/
+                        .build()
 
         return transitions
     }
@@ -85,6 +85,8 @@ object ActivityTransitionsUtil {
             DetectedActivity.WALKING -> "WALKING"
             DetectedActivity.IN_VEHICLE -> "IN VEHICLE"
             DetectedActivity.RUNNING -> "RUNNING"
+            DetectedActivity.ON_FOOT -> "ON FOOT"
+            DetectedActivity.ON_BICYCLE -> "IN VEHICLE"
             else -> "UNKNOWN"
         }
     }

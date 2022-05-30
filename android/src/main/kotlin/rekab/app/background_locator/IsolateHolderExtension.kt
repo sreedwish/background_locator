@@ -8,6 +8,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.view.FlutterCallbackInformation
+import rekab.app.background_locator.PreferencesManager.Companion.PREF_NAME
 import rekab.app.background_locator.provider.LocationRequestOptions
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,6 +50,30 @@ fun getLocationRequest(intent: Intent): LocationRequestOptions {
     val accuracyKey = intent.getIntExtra(Keys.SETTINGS_ACCURACY, 4)
     val accuracy = getAccuracy(accuracyKey)
     val distanceFilter = intent.getDoubleExtra(Keys.SETTINGS_DISTANCE_FILTER, 0.0)
+
+    return LocationRequestOptions(interval, accuracy, distanceFilter.toFloat())
+}
+
+fun getLocationRequestFromPreference(context: Context): LocationRequestOptions {
+
+    val args: Map<*, *> = PreferencesManager.getSettings(context)
+
+    val settings: Map<*,*> = args[Keys.ARG_SETTINGS] as Map<*, *>
+
+    val interval: Long = (settings[Keys.SETTINGS_INTERVAL] as Int ) * 1000L
+    val accuracyKey = (settings[Keys.SETTINGS_INTERVAL] as Int )
+    val accuracy = getAccuracy(accuracyKey)
+    val distanceFilter = (settings[Keys.SETTINGS_DISTANCE_FILTER] as Double)
+
+    return LocationRequestOptions(interval, accuracy, distanceFilter.toFloat())
+}
+
+
+fun getLocationRequestUserStill(): LocationRequestOptions {
+    val interval: Long =  (60 * 1000).toLong()// 1 minute
+    val accuracyKey = 1// Low power
+    val accuracy = getAccuracy(accuracyKey)
+    val distanceFilter = 0
 
     return LocationRequestOptions(interval, accuracy, distanceFilter.toFloat())
 }

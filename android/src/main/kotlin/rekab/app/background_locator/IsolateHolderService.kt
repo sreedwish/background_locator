@@ -12,7 +12,6 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityRecognitionClient
-import com.google.android.gms.location.ActivityTransitionEvent
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -23,7 +22,7 @@ import rekab.app.background_locator.pluggables.Pluggable
 import rekab.app.background_locator.provider.*
 import java.util.HashMap
 
-class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateListener, ActivityUpdateListener,Service() {
+class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateListener,ChangeUserActivityListener,Service() {
     companion object {
         @JvmStatic
         val ACTION_SHUTDOWN = "SHUTDOWN"
@@ -44,13 +43,18 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         private val notificationId = 1
 
         @JvmStatic
-        private val REQUEST_CODE_ACTIVITY_TRANSITION = 123
-
-        @JvmStatic
         private val REQUEST_CODE_INTENT_ACTIVITY_TRANSITION = 122
 
         @JvmStatic
         var isServiceRunning = false
+
+        var userActivityListener : ChangeUserActivityListener? = null
+
+        @JvmStatic
+        fun onNewUserActivity(event : String){
+            userActivityListener?.onUserActivityChange(event)
+
+        }
     }
 
     private var notificationChannelName = "Flutter Locator Plugin"
@@ -65,6 +69,8 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     internal lateinit var context: Context
     private var pluggables: ArrayList<Pluggable> = ArrayList()
     private lateinit var client: ActivityRecognitionClient
+    private var detectionINTERVALinMILLISECONDS = 10 * 1000L// 10 seconds
+    private var lastDetectedUserActivity : String? = null
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -72,9 +78,7 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
     override fun onCreate() {
         super.onCreate()
-        // The Activity Recognition Client returns a
-        // list of activities that a user might be doing
-        client = ActivityRecognition.getClient(this)
+        userActivityListener = this
         startLocatorService(this)
         startForeground(notificationId, getNotification())
     }
@@ -169,6 +173,12 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         locatorClient = getLocationClient(context)
         locatorClient?.requestLocationUpdates(getLocationRequest(intent))
 
+        // The Activity Recognition Client returns a
+        // list of activities that a user might be doing
+        client = ActivityRecognition.getClient(this)
+        //Activity recognition
+        requestForUpdates()
+
         // Fill pluggable list
         if( intent.hasExtra(Keys.SETTINGS_INIT_PLUGGABLE)) {
             pluggables.add(InitPluggable())
@@ -177,9 +187,6 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         if (intent.hasExtra(Keys.SETTINGS_DISPOSABLE_PLUGGABLE)) {
             pluggables.add(DisposePluggable())
         }
-
-        //Activity recognition
-        requestForUpdates()
 
         start()
     }
@@ -217,6 +224,13 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
         if (intent.hasExtra(Keys.SETTINGS_ANDROID_NOTIFICATION_BIG_MSG)) {
             notificationBigMsg = intent.getStringExtra(Keys.SETTINGS_ANDROID_NOTIFICATION_BIG_MSG).toString()
+
+            notificationBigMsg = if (lastDetectedUserActivity == null){
+                "$notificationBigMsg\nLast Activity : UNKNOWN"
+            }else{
+                "$notificationBigMsg\nLast Activity : $lastDetectedUserActivity"
+            }
+
         }
 
         val notification = getNotification()
@@ -285,12 +299,14 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         //https://github.com/flutter/plugins/pull/1641/commits/4358fbba3327f1fa75bc40df503ca5341fdbb77d
         // new version of flutter can not invoke method from background thread
 
+        // Log.d("plugin", "sendLocationEvent $result")
+
         if (backgroundEngine != null) {
             val backgroundChannel =
                     MethodChannel(backgroundEngine?.dartExecutor?.binaryMessenger!!, Keys.BACKGROUND_CHANNEL_ID)
             Handler(context.mainLooper)
                     .post {
-                        Log.d("plugin", "sendLocationEvent $result")
+
                         backgroundChannel.invokeMethod(Keys.BCM_SEND_LOCATION, result)
                     }
         }
@@ -299,9 +315,46 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
 
     //************* Activity Recognition ***************************************
 
-    override fun onDeviceActivityChange(event: ActivityTransitionEvent) {
+    private val tag : String = "USER_ACTIVITY"
+    override fun onUserActivityChange(event: String) {
 
-        Log.d("plugin", "activity ${event.activityType},${event.transitionType}")
+        Log.d(tag, "current event $event, last event $lastDetectedUserActivity")
+
+        if (event == "STILL"){
+
+
+            if (lastDetectedUserActivity == null || lastDetectedUserActivity != "STILL"){
+
+                Log.d(tag, "condition 1")
+
+                //Remove updates
+                locatorClient?.removeLocationUpdates()
+                //Restart with low power & 1 minute update
+                locatorClient?.requestLocationUpdates(getLocationRequestUserStill())
+
+            }
+
+
+        }else{
+
+            if ( lastDetectedUserActivity == null || (event != "UNKNOWN" && event != lastDetectedUserActivity)){
+
+                Log.d(tag, "condition 2")
+
+                //Remove updates
+                locatorClient?.removeLocationUpdates()
+
+                //Restart with user saved settings
+                locatorClient?.requestLocationUpdates(getLocationRequestFromPreference(context))
+
+            }
+
+        }
+
+
+        lastDetectedUserActivity = event
+
+
 
     }
 
@@ -310,40 +363,45 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
     // (i.e. IntentService, BroadcastReceiver etc.) that will receive and handle updates appropriately.
     @SuppressLint("MissingPermission")
     private fun requestForUpdates() {
-        client.requestActivityTransitionUpdates(
-                        ActivityTransitionsUtil.getActivityTransitionRequest(),
-                        getPendingIntent()
-                )
+
+        client.requestActivityUpdates(detectionINTERVALinMILLISECONDS, getPendingIntent())
                 .addOnSuccessListener {
 
-                    //"successful registration"
-                    //showToast("successful registration")
-                }
+            Log.d("activityRecog", "start success")
+            //"successful registration"
+            //showToast("successful registration")
+                    }
                 .addOnFailureListener {
+                    Log.d("activityRecog", "start fail")
                     //"Unsuccessful registration"
                     //showToast("Unsuccessful registration")
                 }
+
     }
 
-    // Deregistering from updates
+    // Deregister from updates
     // call the removeActivityTransitionUpdates() method
     // of the ActivityRecognitionClient and pass
     // ourPendingIntent object as a parameter
     @SuppressLint("MissingPermission")
     private fun deregisterForUpdates() {
-        client
-                .removeActivityTransitionUpdates(getPendingIntent())
-                .addOnSuccessListener {
-                    getPendingIntent().cancel()
-                    //showToast("successful deregistration")
-                }
-                .addOnFailureListener { e: Exception ->
-                    //showToast("unsuccessful deregistration")
-                }
+
+        try {
+            client.removeActivityUpdates(getPendingIntent()).addOnSuccessListener {
+                getPendingIntent().cancel()
+            }.addOnFailureListener{ e: Exception ->
+                //showToast("unsuccessful deregistration")
+            }
+        }catch (e : Exception){
+
+        }
+
+
+
     }
 
     private fun getPendingIntent(): PendingIntent {
-        val intent = Intent(this, ActivityTransitionReceiver(this)::class.java)
+        val intent = Intent(this, ActivityTransitionReceiver::class.java)
         return PendingIntent.getBroadcast(
                 this,
                 REQUEST_CODE_INTENT_ACTIVITY_TRANSITION,
@@ -352,4 +410,8 @@ class IsolateHolderService : MethodChannel.MethodCallHandler, LocationUpdateList
         )
     }
 
+
+
 }
+
+

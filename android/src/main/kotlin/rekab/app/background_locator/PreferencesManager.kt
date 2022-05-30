@@ -7,7 +7,7 @@ import rekab.app.background_locator.provider.LocationClient
 
 class PreferencesManager {
     companion object {
-        private const val PREF_NAME = "background_locator"
+        const val PREF_NAME = "background_locator"
 
         @JvmStatic
         fun saveCallbackDispatcher(context: Context, map: Map<Any, Any>) {
